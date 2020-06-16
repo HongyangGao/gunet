@@ -1,6 +1,5 @@
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 import numpy as np
 
 
@@ -18,8 +17,8 @@ class GraphUnet(nn.Module):
         for i in range(self.l_n):
             self.down_gcns.append(GCN(dim, dim, act, drop_p))
             self.up_gcns.append(GCN(dim, dim, act, drop_p))
-            self.pools.append(AttnPool(ks[i], dim, drop_p))
-            self.unpools.append(AttnUnpool(dim, dim, drop_p))
+            self.pools.append(Pool(ks[i], dim, drop_p))
+            self.unpools.append(Unpool(dim, dim, drop_p))
 
     def forward(self, g, h):
         adj_ms = []
@@ -78,31 +77,6 @@ class Pool(nn.Module):
         return top_k_graph(scores, g, h, self.k)
 
 
-class AttnPool(nn.Module):
-
-    def __init__(self, k, in_dim, p):
-        super(AttnPool, self).__init__()
-        self.k = k
-        self.proj_k = nn.Linear(in_dim, in_dim)
-        self.proj_v = nn.Linear(in_dim, 1)
-        self.sigmoid = nn.Sigmoid()
-        self.drop = nn.Dropout(p=p) if p > 0 else nn.Identity()
-
-    def forward(self, g, h):
-        weights = self.attn(g, h).squeeze()
-        scores = self.sigmoid(weights)
-        return top_k_graph(scores, g, h, self.k)
-
-    def attn(self, g, h):
-        v = self.proj_v(h)
-        ws = torch.mm(h, h.t())
-        mask = ~g.bool() * -1000000
-        ws = ws + mask
-        ws_n = F.softmax(ws, dim=1)
-        new_h = torch.mm(ws_n, v)
-        return new_h
-
-
 class Unpool(nn.Module):
 
     def __init__(self, *args):
@@ -112,41 +86,6 @@ class Unpool(nn.Module):
         new_h = h.new_zeros([g.shape[0], h.shape[1]])
         new_h[idx] = h
         return g, new_h
-
-
-class AttnUnpool(nn.Module):
-
-    def __init__(self, in_dim, out_dim, p):
-        super(AttnUnpool, self).__init__()
-        self.attn = GraphAttn(in_dim, out_dim, p)
-
-    def forward(self, g, h, pre_h, idx):
-        new_h = self.attn(g, pre_h, h, idx)
-        new_h[idx] = h
-        return g, new_h
-
-
-class GraphAttn(nn.Module):
-
-    def __init__(self, in_dim, out_dim, p):
-        super(GraphAttn, self).__init__()
-        self.proj = nn.Linear(in_dim, out_dim)
-        self.drop = nn.Dropout(p=p) if p > 0.0 else nn.Identity()
-
-    def forward(self, g, pre_h, h, idx):
-        h = self.drop(h)
-        h = self.proj(h)
-        if pre_h.shape == h.shape:
-            new_v = h
-        else:
-            new_v = h.new_zeros([g.shape[0], h.shape[1]])
-            new_v[idx] = h
-        ws = torch.mm(pre_h, new_v.t())
-        mask = ~g.bool() * -1000000
-        ws = ws + mask
-        ws_n = F.softmax(ws, dim=1)
-        new_h = torch.mm(ws_n, new_v)
-        return new_h
 
 
 def top_k_graph(scores, g, h, k):
