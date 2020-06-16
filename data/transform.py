@@ -50,9 +50,6 @@ def write_graph(g_file, acc_g_size, label, edges):
             neighbors = sorted(set(edges[acc_g_size+i]))
             neighbors = [n_id - acc_g_size for n_id in neighbors]
             neighbors = [n_id for n_id in neighbors if n_id < num_nodes]
-            if neighbors and max(neighbors) >= num_nodes:
-                import ipdb; ipdb.set_trace()
-            
             f.write('0 %s %s\n' % (
                 len(neighbors), ' '.join(map(str, neighbors))))
 
@@ -93,11 +90,7 @@ def load_data(g_file):
                 n_edges += row[1]
                 for k in range(2, len(row)):
                     g.add_edge(j, row[k])
-            try:
-                assert len(g) == num_node
-            except:
-                import ipdb; ipdb.set_trace()
-            
+            assert len(g) == num_node
 
 
 if __name__ == '__main__':

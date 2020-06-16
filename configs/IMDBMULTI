@@ -1,0 +1,12 @@
+num_epochs=200
+batch_size=64
+learning_rate=0.001
+deg_as_tag=1
+layer_num=3
+hidden_dim=512
+layer_dim=48
+drop_network=0.1
+drop_classifier=0.1
+activation_network=LeakyReLU
+activation_classifier=ELU
+pool_rates_layers="0.9 0.9 0.9"
